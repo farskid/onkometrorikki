@@ -1,6 +1,8 @@
 const http = require('http');
 const GtfsRealtimeBindings = require('gtfs-realtime-bindings');
 const request = require('request');
+const debugBrokenIfAnyDisruptions =
+  process.env.DEBUG_BROKEN_IF_ANY_DISRUPTIONS || false;
 
 /*
 Deprecated Types
@@ -83,29 +85,23 @@ module.exports = {
       let brokenCount = 0;
       let reasons = [];
       feed.entity.forEach(function(entity) {
-        let thisAlertForBrokenMetro = false;
-        if (entity.alert) {
+        if (
+          entity.alert &&
+          (debugBrokenIfAnyDisruptions ||
+            (entity.alert.informed_entity &&
+              entity.alert.informed_entity.length > 0 &&
+              (entity.alert.informed_entity[0].route_type ==
+                METRO_ROUTE_TYPE_OLD ||
+                entity.alert.informed_entity[0].route_type ==
+                  METRO_ROUTE_TYPE_NEW)))
+        ) {
+          brokenCount++;
           if (
-            entity.alert &&
-            entity.alert.informed_entity &&
-            entity.alert.informed_entity.length > 0 &&
-            (entity.alert.informed_entity[0].route_type ==
-              METRO_ROUTE_TYPE_OLD ||
-              entity.alert.informed_entity[0].route_type ==
-                METRO_ROUTE_TYPE_NEW)
-          ) {
-            brokenCount++;
-            thisAlertForBrokenMetro = true;
-          }
-
-          if (
-            thisAlertForBrokenMetro &&
             entity.alert.description_text &&
             entity.alert.description_text.translation &&
-            entity.alert.description_text.translation.length > 0 &&
-            entity.alert.description_text.translation[0].text
+            entity.alert.description_text.translation.length > 0
           ) {
-            reasons.push(entity.alert.description_text.translation[0].text);
+            reasons.push(entity.alert.description_text.translation);
           }
         }
       });
